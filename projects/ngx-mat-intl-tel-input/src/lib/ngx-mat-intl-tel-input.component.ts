@@ -22,6 +22,10 @@ import {coerceBooleanProperty} from '@angular/cdk/coercion';
 import {Subject} from 'rxjs';
 import {FocusMonitor} from '@angular/cdk/a11y';
 
+export interface CountryDisplay extends Country {
+  visible?: boolean;
+}
+
 @Component({
   // tslint:disable-next-line:component-selector
   selector: 'ngx-mat-intl-tel-input',
@@ -59,9 +63,9 @@ export class NgxMatIntlTelInputComponent implements OnInit, OnDestroy, DoCheck, 
   @HostBinding() id = `ngx-mat-intl-tel-input-${NgxMatIntlTelInputComponent.nextId++}`;
   describedBy = '';
   phoneNumber = '';
-  allCountries: Array<Country> = [];
-  preferredCountriesInDropDown: Array<Country> = [];
-  selectedCountry: Country;
+  allCountries: Array<CountryDisplay> = [];
+  preferredCountriesInDropDown: Array<CountryDisplay> = [];
+  selectedCountry: CountryDisplay;
   numberInstance: PhoneNumber;
   value;
   searchCriteria: string;
@@ -130,9 +134,12 @@ export class NgxMatIntlTelInputComponent implements OnInit, OnDestroy, DoCheck, 
         this.preferredCountriesInDropDown.push(preferredCountry[0]);
       });
     }
-    if (this.onlyCountries.length) {
-      this.allCountries = this.allCountries.filter(c => this.onlyCountries.includes(c.iso2));
-    }
+    this.allCountries.forEach(c => {
+      c.visible = (
+        (!this.onlyCountries.length || this.onlyCountries.includes(c.iso2))
+        && (!this.preferredCountries.length || !this.preferredCountries.includes(c.iso2))
+      );
+    });
     if (this.preferredCountriesInDropDown.length) {
       this.selectedCountry = this.preferredCountriesInDropDown[0];
     } else {
@@ -176,14 +183,15 @@ export class NgxMatIntlTelInputComponent implements OnInit, OnDestroy, DoCheck, 
 
   protected fetchCountryData(): void {
     this.countryCodeData.allCountries.forEach(c => {
-      const country: Country = {
+      const country: CountryDisplay = {
         name: c[0].toString(),
         iso2: c[1].toString(),
         dialCode: c[2].toString(),
         priority: +c[3] || 0,
         areaCodes: c[4] as string[] || undefined,
         flagClass: c[1].toString().toUpperCase(),
-        placeHolder: ''
+        placeHolder: '',
+        visible: false,
       };
 
       if (this.enablePlaceholder) {
@@ -215,11 +223,12 @@ export class NgxMatIntlTelInputComponent implements OnInit, OnDestroy, DoCheck, 
       this.numberInstance = parsePhoneNumberFromString(value);
       if (this.numberInstance) {
         const countryCode = this.numberInstance.country;
-        this.phoneNumber = this.numberInstance.formatNational();
+        this.phoneNumber = this.numberInstance.formatNational().replace(/^\s*0+\s*/, '');
         if (!countryCode) {
           return;
         }
         setTimeout(() => {
+          this.selectedCountry.visible = true;
           this.selectedCountry = this.allCountries.find(c => c.iso2 === countryCode.toLowerCase());
           this.countryChanged.emit(this.selectedCountry);
         }, 1);

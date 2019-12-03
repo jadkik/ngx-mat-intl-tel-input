@@ -1,4 +1,5 @@
 import { Pipe, PipeTransform } from '@angular/core';
+import {CountryDisplay} from "./ngx-mat-intl-tel-input.component";
 
 @Pipe({
   name: 'search'
@@ -6,12 +7,12 @@ import { Pipe, PipeTransform } from '@angular/core';
 export class SearchPipe implements PipeTransform {
 
   // country | search:'searchCriteria'
-  transform(country: any, searchCriteria?: any): any {
+  transform(country: CountryDisplay, searchCriteria?: any): any {
     if (!searchCriteria || searchCriteria === '') {
-      return true;
+      return country.visible;
     }
 
-    return country.toLowerCase().includes(searchCriteria.toLowerCase());
+    return country.visible && country.name.toLowerCase().includes(searchCriteria.toLowerCase());
   }
 
 }
