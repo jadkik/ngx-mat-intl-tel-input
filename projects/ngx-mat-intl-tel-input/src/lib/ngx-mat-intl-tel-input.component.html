@@ -5,7 +5,7 @@
   </button>
   <mat-menu #menu="matMenu">
     <input *ngIf="enableSearch" class="country-search" [(ngModel)]="searchCriteria" type="text" placeholder="Search..." (click)="$event.stopPropagation()" />
-    <button type="button" mat-menu-item class="country-list-button" *ngFor="let country of preferredCountriesInDropDown" (click)="onCountrySelect(country, focusable)">
+    <button type="button" class="mat-menu-item country-list-button" *ngFor="let country of preferredCountriesInDropDown" (click)="onCountrySelect(menu, country, focusable)">
       <div class="icon-wrapper">
         <div class="flag" [ngClass]="country.flagClass"></div>
       </div>
@@ -13,7 +13,7 @@
     </button>
     <mat-divider *ngIf="preferredCountriesInDropDown?.length"></mat-divider>
     <ng-container *ngFor="let country of allCountries">
-      <button type="button" mat-menu-item class="country-list-button" *ngIf="country | search:searchCriteria" (click)="onCountrySelect(country, focusable)">
+      <button type="button" class="mat-menu-item country-list-button" *ngIf="country | search:searchCriteria" (click)="onCountrySelect(menu, country, focusable)">
         <div class="icon-wrapper">
           <div class="flag" [ngClass]="country.flagClass"></div>
         </div>

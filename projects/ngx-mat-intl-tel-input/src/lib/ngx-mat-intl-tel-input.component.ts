@@ -9,7 +9,10 @@ import {
   OnInit,
   Optional,
   Output,
-  Self
+  Self,
+  AfterViewInit,
+  ViewChildren,
+  QueryList
 } from '@angular/core';
 
 import {NG_VALIDATORS, NgControl} from '@angular/forms';
@@ -17,7 +20,7 @@ import {CountryCode, Examples} from './data/country-code';
 import {phoneNumberValidator} from './ngx-mat-intl-tel-input.validator';
 import {Country} from './model/country.model';
 import {getExampleNumber, parsePhoneNumberFromString, PhoneNumber} from 'libphonenumber-js';
-import {ErrorStateMatcher, MatFormFieldControl} from '@angular/material';
+import {ErrorStateMatcher, MatFormFieldControl, MatMenuTrigger, MatMenu} from '@angular/material';
 import {coerceBooleanProperty} from '@angular/cdk/coercion';
 import {Subject} from 'rxjs';
 import {FocusMonitor} from '@angular/cdk/a11y';
@@ -41,7 +44,7 @@ export interface CountryDisplay extends Country {
     }
   ]
 })
-export class NgxMatIntlTelInputComponent implements OnInit, OnDestroy, DoCheck, MatFormFieldControl<any> {
+export class NgxMatIntlTelInputComponent implements OnInit, AfterViewInit, OnDestroy, DoCheck, MatFormFieldControl<any> {
   static nextId = 0;
 
   @Input() preferredCountries: Array<string> = [];
@@ -71,6 +74,8 @@ export class NgxMatIntlTelInputComponent implements OnInit, OnDestroy, DoCheck, 
   searchCriteria: string;
   @Output()
   countryChanged: EventEmitter<Country> = new EventEmitter<Country>();
+
+  @ViewChildren(MatMenuTrigger) menuTriggers !: QueryList<MatMenuTrigger>;
 
   static getPhoneNumberPlaceHolder(countryISOCode: any): string {
     try {
@@ -148,6 +153,13 @@ export class NgxMatIntlTelInputComponent implements OnInit, OnDestroy, DoCheck, 
     this.countryChanged.emit(this.selectedCountry);
   }
 
+  ngAfterViewInit() {
+    this.menuTriggers.forEach(item => {
+      console.log('Replacing for', item);
+      (item as any)._element.nativeElement.removeEventListener('touchstart', (item as any)._handleTouchStart);
+    });
+  }
+
   ngDoCheck(): void {
     if (this.ngControl) {
       this.errorState = this.ngControl.invalid && this.ngControl.touched;
@@ -167,11 +179,16 @@ export class NgxMatIntlTelInputComponent implements OnInit, OnDestroy, DoCheck, 
     this.propagateChange(this.value);
   }
 
-  public onCountrySelect(country: Country, el): void {
+  public onCountrySelect(menu: MatMenu, country: Country, el): void {
     this.selectedCountry = country;
     this.countryChanged.emit(this.selectedCountry);
     this.onPhoneNumberChange();
     el.focus();
+
+    const menuTrigger = this.menuTriggers.find(item => item.menu === menu);
+    if (menuTrigger) {
+      menuTrigger.closeMenu();
+    }
   }
 
   public onInputKeyPress(event): void {
