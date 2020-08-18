@@ -304,8 +304,8 @@ export class NgxMatIntlTelInputComponent implements OnInit, AfterViewInit, OnDes
   }
 
   reset() {
-    this.phoneNumber = null;
-    this.propagateChange(null);
+    this.phoneNumber = '';
+    this.propagateChange('');
   }
 
   ngOnDestroy() {
