@@ -4,8 +4,8 @@ An Angular Material package for entering and validating international telephone 
 
 **Supports:**
 
-- Angular 7
-- Angular Material 7
+- Angular 11
+- Angular Material 11
 - ReactiveFormsModule
 - FormsModule
 - Validation with [libphonenumber-js](https://github.com/catamphetamine/libphonenumber-js)
@@ -87,8 +87,11 @@ If you want to show the sample number for the country selected or errors , use m
 | ------------------------------|------------------------|--------------------|-------------------------------------------------------------------------------------|
 | preferredCountries            | ```string[]```         | ```[]```           | List of country abbreviations, which will appear at the top.                        |
 | onlyCountries                 | ```string[]```         | ```[]```           | List of manually selected country abbreviations, which will appear in the dropdown. |                    |
+| inputPlaceholder              | ```string```           | ```undefined```    | Placeholder for the input component.                                                |
 | enablePlaceholder             | ```boolean```          | ```true```         | Input placeholder text, which adapts to the country selected.                      |
 | enableSearch                  | ```boolean```          | ```false```        | Whether to display a search bar to help filter down the list of countries          |
+| format                        | ```string```           | ```default```      | Format of "as you type" input. Possible values: national, international, default    |
+
 
 ## Library Contributions
 

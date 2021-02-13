@@ -1,3 +1,4 @@
+import {MatFormFieldControl} from '@angular/material/form-field';
 import {
   Component,
   DoCheck,
@@ -13,17 +14,41 @@ import {
   AfterViewInit,
   ViewChildren,
   QueryList
+  ViewChild,
+  ChangeDetectionStrategy,
+  ChangeDetectorRef
 } from '@angular/core';
 
-import {NG_VALIDATORS, NgControl} from '@angular/forms';
+import {FormGroupDirective, NG_VALIDATORS, NgControl, NgForm} from '@angular/forms';
 import {CountryCode, Examples} from './data/country-code';
 import {phoneNumberValidator} from './ngx-mat-intl-tel-input.validator';
 import {Country} from './model/country.model';
 import {getExampleNumber, parsePhoneNumberFromString, PhoneNumber} from 'libphonenumber-js';
 import {ErrorStateMatcher, MatFormFieldControl, MatMenuTrigger, MatMenu} from '@angular/material';
+import {PhoneNumberFormat} from './model/phone-number-format.model';
+import {AsYouType, CountryCode as CC, E164Number, getExampleNumber, parsePhoneNumberFromString, PhoneNumber} from 'libphonenumber-js';
+
 import {coerceBooleanProperty} from '@angular/cdk/coercion';
 import {Subject} from 'rxjs';
 import {FocusMonitor} from '@angular/cdk/a11y';
+import {CanUpdateErrorState, CanUpdateErrorStateCtor, ErrorStateMatcher, mixinErrorState} from '@angular/material/core';
+import {MatMenu} from '@angular/material/menu';
+
+class NgxMatIntlTelInputBase {
+  // tslint:disable-next-line:variable-name
+  constructor(public _defaultErrorStateMatcher: ErrorStateMatcher,
+              // tslint:disable-next-line:variable-name
+              public _parentForm: NgForm,
+              // tslint:disable-next-line:variable-name
+              public _parentFormGroup: FormGroupDirective,
+              /** @docs-private */
+              public ngControl: NgControl) {
+  }
+}
+
+// tslint:disable-next-line:variable-name
+const _NgxMatIntlTelInputMixinBase: CanUpdateErrorStateCtor & typeof NgxMatIntlTelInputBase =
+  mixinErrorState(NgxMatIntlTelInputBase);
 
 export interface CountryDisplay extends Country {
   visible?: boolean;
@@ -42,18 +67,36 @@ export interface CountryDisplay extends Country {
       useValue: phoneNumberValidator,
       multi: true,
     }
-  ]
+  ],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class NgxMatIntlTelInputComponent implements OnInit, AfterViewInit, OnDestroy, DoCheck, MatFormFieldControl<any> {
+
+export class NgxMatIntlTelInputComponent extends _NgxMatIntlTelInputMixinBase
+  implements OnInit, OnDestroy, DoCheck, AfterViewInit, CanUpdateErrorState, MatFormFieldControl<any> {
   static nextId = 0;
 
   @Input() preferredCountries: Array<string> = [];
   @Input() enablePlaceholder = true;
+  @Input() inputPlaceholder: string;
   @Input() cssClass;
   @Input() name: string;
   @Input() onlyCountries: Array<string> = [];
   @Input() errorStateMatcher: ErrorStateMatcher;
   @Input() enableSearch = false;
+  @Input() searchPlaceholder: string;
+
+  @Input()
+  get format(): PhoneNumberFormat {
+    return this._format;
+  }
+
+  set format(value: PhoneNumberFormat) {
+    this._format = value;
+    this.phoneNumber = this.formattedPhoneNumber;
+    this.stateChanges.next();
+  }
+
+  @ViewChild(MatMenu) matMenu: MatMenu;
   // tslint:disable-next-line:variable-name
   private _placeholder: string;
   // tslint:disable-next-line:variable-name
@@ -62,10 +105,9 @@ export class NgxMatIntlTelInputComponent implements OnInit, AfterViewInit, OnDes
   private _disabled = false;
   stateChanges = new Subject<void>();
   focused = false;
-  errorState = false;
   @HostBinding() id = `ngx-mat-intl-tel-input-${NgxMatIntlTelInputComponent.nextId++}`;
   describedBy = '';
-  phoneNumber = '';
+  phoneNumber: E164Number = '';
   allCountries: Array<CountryDisplay> = [];
   preferredCountriesInDropDown: Array<CountryDisplay> = [];
   selectedCountry: CountryDisplay;
@@ -74,6 +116,10 @@ export class NgxMatIntlTelInputComponent implements OnInit, AfterViewInit, OnDes
   searchCriteria: string;
   @Output()
   countryChanged: EventEmitter<Country> = new EventEmitter<Country>();
+
+  private previousFormattedNumber: string;
+  // tslint:disable-next-line:variable-name
+  private _format: PhoneNumberFormat = 'default';
 
   @ViewChildren(MatMenuTrigger) menuTriggers !: QueryList<MatMenuTrigger>;
 
@@ -85,38 +131,26 @@ export class NgxMatIntlTelInputComponent implements OnInit, AfterViewInit, OnDes
     }
   }
 
-  private _getFullNumber() {
-    const val = this.phoneNumber.trim();
-    const dialCode = this.selectedCountry.dialCode;
-    let prefix;
-    const numericVal = val.replace(/\D/g, '');
-    // normalized means ensure starts with a 1, so we can match against the full dial code
-    const normalizedVal = numericVal.charAt(0) === '1' ? numericVal : '1'.concat(numericVal);
-    if (val.charAt(0) !== '+') {
-      // when using separateDialCode, it is visible so is effectively part of the typed number
-      prefix = '+'.concat(dialCode);
-    } else if (val && val.charAt(0) !== '+' && val.charAt(0) !== '1' && dialCode && dialCode.charAt(0) === '1'
-      && dialCode.length === 4 && dialCode !== normalizedVal.substr(0, 4)) {
-      // ensure national NANP numbers contain the area code
-      prefix = dialCode.substr(1);
-    } else {
-      prefix = '';
-    }
-    return prefix + numericVal;
-  }
-
   onTouched = () => {
-  }
+  };
 
   propagateChange = (_: any) => {
-  }
+  };
 
   constructor(
+    private _changeDetectorRef: ChangeDetectorRef,
     private countryCodeData: CountryCode,
     private fm: FocusMonitor,
     private elRef: ElementRef<HTMLElement>,
-    @Optional() @Self() public ngControl: NgControl
+    @Optional() @Self() public ngControl: NgControl,
+    // tslint:disable-next-line:variable-name
+    @Optional() _parentForm: NgForm,
+    // tslint:disable-next-line:variable-name
+    @Optional() _parentFormGroup: FormGroupDirective,
+    // tslint:disable-next-line:variable-name
+    _defaultErrorStateMatcher: ErrorStateMatcher,
   ) {
+    super(_defaultErrorStateMatcher, _parentForm, _parentFormGroup, ngControl);
     fm.monitor(elRef, true).subscribe(origin => {
       if (this.focused && !origin) {
         this.onTouched();
@@ -131,12 +165,15 @@ export class NgxMatIntlTelInputComponent implements OnInit, AfterViewInit, OnDes
   }
 
   ngOnInit() {
+    if (!this.searchPlaceholder) {
+      this.searchPlaceholder = 'Search ...';
+    }
     if (this.preferredCountries.length) {
       this.preferredCountries.forEach(iso2 => {
         const preferredCountry = this.allCountries.filter((c) => {
           return c.iso2 === iso2;
-        });
-        this.preferredCountriesInDropDown.push(preferredCountry[0]);
+        }).shift();
+        this.preferredCountriesInDropDown.push(preferredCountry);
       });
     }
     this.allCountries.forEach(c => {
@@ -145,12 +182,19 @@ export class NgxMatIntlTelInputComponent implements OnInit, AfterViewInit, OnDes
         && (!this.preferredCountries.length || !this.preferredCountries.includes(c.iso2))
       );
     });
-    if (this.preferredCountriesInDropDown.length) {
-      this.selectedCountry = this.preferredCountriesInDropDown[0];
+    if (this.numberInstance && this.numberInstance.country) {
+      // If an existing number is present, we use it to determine selectedCountry
+      this.selectedCountry = this.getCountry(this.numberInstance.country);
     } else {
-      this.selectedCountry = this.allCountries[0];
+      if (this.preferredCountriesInDropDown.length) {
+        this.selectedCountry = this.preferredCountriesInDropDown[0];
+      } else {
+        this.selectedCountry = this.allCountries[0];
+      }
     }
     this.countryChanged.emit(this.selectedCountry);
+    this._changeDetectorRef.markForCheck();
+    this.stateChanges.next();
   }
 
   ngAfterViewInit() {
@@ -162,24 +206,37 @@ export class NgxMatIntlTelInputComponent implements OnInit, AfterViewInit, OnDes
 
   ngDoCheck(): void {
     if (this.ngControl) {
-      this.errorState = this.ngControl.invalid && this.ngControl.touched;
-      this.stateChanges.next();
+      this.updateErrorState();
     }
   }
 
   public onPhoneNumberChange(): void {
     try {
-      this.numberInstance = parsePhoneNumberFromString(this._getFullNumber());
+      this.numberInstance = parsePhoneNumberFromString(this.phoneNumber.toString(), this.selectedCountry.iso2.toUpperCase() as CC);
+      this.formatAsYouTypeIfEnabled();
       this.value = this.numberInstance.number;
+      if (this.numberInstance && this.numberInstance.isValid()) {
+        if (this.phoneNumber !== this.formattedPhoneNumber) {
+          this.phoneNumber = this.formattedPhoneNumber;
+        }
+        if (this.selectedCountry.iso2 !== this.numberInstance.country) {
+          this.selectedCountry = this.getCountry(this.numberInstance.country);
+          this.countryChanged.emit(this.selectedCountry);
+        }
+      }
     } catch (e) {
       // if no possible numbers are there,
       // then the full number is passed so that validator could be triggered and proper error could be shown
-      this.value = this._getFullNumber();
+      this.value = this.phoneNumber.toString();
     }
     this.propagateChange(this.value);
+    this._changeDetectorRef.markForCheck();
   }
 
   public onCountrySelect(menu: MatMenu, country: Country, el): void {
+    if (this.phoneNumber) {
+      this.phoneNumber = this.numberInstance.nationalNumber;
+    }
     this.selectedCountry = country;
     this.countryChanged.emit(this.selectedCountry);
     this.onPhoneNumberChange();
@@ -189,6 +246,18 @@ export class NgxMatIntlTelInputComponent implements OnInit, AfterViewInit, OnDes
     if (menuTrigger) {
       menuTrigger.closeMenu();
     }
+  }
+
+  public getCountry(code) {
+    return this.allCountries.find(c => c.iso2 === code.toLowerCase()) || {
+      name: 'UN',
+      iso2: 'UN',
+      dialCode: undefined,
+      priority: 0,
+      areaCodes: undefined,
+      flagClass: 'UN',
+      placeHolder: ''
+    };
   }
 
   public onInputKeyPress(event): void {
@@ -229,28 +298,39 @@ export class NgxMatIntlTelInputComponent implements OnInit, AfterViewInit, OnDes
 
   setDisabledState(isDisabled: boolean): void {
     this.disabled = isDisabled;
+    this._changeDetectorRef.markForCheck();
+    this.stateChanges.next();
   }
 
   writeValue(value: any): void {
-    // when form is reset
-    if (value === null) {
-      this.reset();
-    }
     if (value) {
       this.numberInstance = parsePhoneNumberFromString(value);
       if (this.numberInstance) {
         const countryCode = this.numberInstance.country;
-        this.phoneNumber = this.numberInstance.formatNational().replace(/^\s*0+\s*/, '');
+        this.phoneNumber = this.formattedPhoneNumber;
         if (!countryCode) {
           return;
         }
         setTimeout(() => {
           this.selectedCountry.visible = true;
-          this.selectedCountry = this.allCountries.find(c => c.iso2 === countryCode.toLowerCase());
+          this.selectedCountry = this.getCountry(countryCode);
+          if (this.selectedCountry.dialCode && !this.preferredCountries.includes(this.selectedCountry.iso2)) {
+            this.preferredCountriesInDropDown.push(this.selectedCountry);
+          }
           this.countryChanged.emit(this.selectedCountry);
+
+          // Initial value is set
+          this._changeDetectorRef.markForCheck();
+          this.stateChanges.next();
         }, 1);
+      } else {
+        this.phoneNumber = value;
       }
     }
+
+    // Value is set from outside using setValue()
+    this._changeDetectorRef.markForCheck();
+    this.stateChanges.next();
   }
 
   get empty() {
@@ -305,7 +385,10 @@ export class NgxMatIntlTelInputComponent implements OnInit, AfterViewInit, OnDes
 
   reset() {
     this.phoneNumber = '';
-    this.propagateChange('');
+    this.propagateChange(null);
+
+    this._changeDetectorRef.markForCheck();
+    this.stateChanges.next();
   }
 
   ngOnDestroy() {
@@ -313,4 +396,29 @@ export class NgxMatIntlTelInputComponent implements OnInit, AfterViewInit, OnDes
     this.fm.stopMonitoring(this.elRef);
   }
 
+  private get formattedPhoneNumber(): string {
+    if (!this.numberInstance) {
+      return this.phoneNumber.toString();
+    }
+    switch (this.format) {
+      case 'national':
+        return this.numberInstance.formatNational();
+      case 'international':
+        return this.numberInstance.formatInternational();
+      default:
+        return this.numberInstance.nationalNumber.toString().replace(/^\s*0+\s*/, '');
+    }
+  }
+
+  private formatAsYouTypeIfEnabled(): void {
+    if (this.format === 'default') {
+      return;
+    }
+    const asYouType: AsYouType = new AsYouType(this.selectedCountry.iso2.toUpperCase() as CC);
+    // To avoid caret positioning we apply formatting only if the caret is at the end:
+    if (this.phoneNumber.toString().startsWith(this.previousFormattedNumber || '')) {
+      this.phoneNumber = asYouType.input(this.phoneNumber.toString());
+    }
+    this.previousFormattedNumber = this.phoneNumber.toString();
+  }
 }
