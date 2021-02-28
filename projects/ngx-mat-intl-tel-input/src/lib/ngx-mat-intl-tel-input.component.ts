@@ -13,7 +13,7 @@ import {
   Self,
   AfterViewInit,
   ViewChildren,
-  QueryList
+  QueryList,
   ViewChild,
   ChangeDetectionStrategy,
   ChangeDetectorRef
@@ -23,8 +23,6 @@ import {FormGroupDirective, NG_VALIDATORS, NgControl, NgForm} from '@angular/for
 import {CountryCode, Examples} from './data/country-code';
 import {phoneNumberValidator} from './ngx-mat-intl-tel-input.validator';
 import {Country} from './model/country.model';
-import {getExampleNumber, parsePhoneNumberFromString, PhoneNumber} from 'libphonenumber-js';
-import {ErrorStateMatcher, MatFormFieldControl, MatMenuTrigger, MatMenu} from '@angular/material';
 import {PhoneNumberFormat} from './model/phone-number-format.model';
 import {AsYouType, CountryCode as CC, E164Number, getExampleNumber, parsePhoneNumberFromString, PhoneNumber} from 'libphonenumber-js';
 
@@ -32,7 +30,7 @@ import {coerceBooleanProperty} from '@angular/cdk/coercion';
 import {Subject} from 'rxjs';
 import {FocusMonitor} from '@angular/cdk/a11y';
 import {CanUpdateErrorState, CanUpdateErrorStateCtor, ErrorStateMatcher, mixinErrorState} from '@angular/material/core';
-import {MatMenu} from '@angular/material/menu';
+import {MatMenuTrigger, MatMenu} from '@angular/material/menu';
 
 class NgxMatIntlTelInputBase {
   // tslint:disable-next-line:variable-name
